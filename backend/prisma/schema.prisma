@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../app_data/scholarstack.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  apiKey    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projects  Project[]
+}
+
+model Project {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  documents Document[]
+  notes     Note[]
+  highlights Highlight[]
+}
+
+model Document {
+  id           String           @id @default(uuid())
+  projectId    String
+  filename     String
+  filePath     String
+  pageCount    Int?
+  uploadedAt   DateTime         @default(now())
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chunks       DocumentChunk[]
+  highlights   Highlight[]
+}
+
+model DocumentChunk {
+  id         String   @id @default(uuid())
+  documentId String
+  chunkIndex Int
+  content    String
+  embedding  String? // JSON stringified vector array
+  createdAt  DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  projectId String
+  content   String // TipTap JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Highlight {
+  id           String   @id @default(uuid())
+  projectId    String
+  documentId   String
+  pageNumber   Int
+  text         String
+  color        String   @default("#ffff00")
+  coordinates  String // JSON stringified bounding rect
+  noteId       String?
+  createdAt    DateTime @default(now())
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}

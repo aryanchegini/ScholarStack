@@ -1,0 +1,156 @@
+import { useState, useRef } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import HighlightOverlay from './HighlightOverlay';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+// Set up the PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+interface PDFViewerProps {
+  document: {
+    id: string;
+    filename: string;
+    filePath: string;
+    pageCount?: number;
+  };
+  onAddToNotebook?: (text: string, tag: string) => void;
+}
+
+export default function PDFViewer({ document, onAddToNotebook }: PDFViewerProps) {
+  const [numPages, setNumPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [scale, setScale] = useState(1.0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  const handleLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+  };
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, numPages)));
+  };
+
+  const zoomIn = () => setScale(s => Math.min(s + 0.25, 3));
+  const zoomOut = () => setScale(s => Math.max(s - 0.25, 0.5));
+
+  const handleHighlight = (text: string, data: any) => {
+    if (onAddToNotebook) {
+      onAddToNotebook(text, data.tag || 'highlight');
+      toast({
+        title: 'Added to notebook',
+        description: `Highlight added as #${data.tag}`,
+      });
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-gray-100 dark:bg-gray-900">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium">
+            Page {currentPage} of {numPages}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage >= numPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={zoomOut} disabled={scale <= 0.5}>
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium w-16 text-center">
+            {Math.round(scale * 100)}%
+          </span>
+          <Button variant="ghost" size="icon" onClick={zoomIn} disabled={scale >= 3}>
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* PDF Content */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto p-4 scrollbar-thin relative"
+      >
+        <HighlightOverlay onHighlight={handleHighlight} />
+        <div className="flex justify-center">
+          <Document
+            file={`${document.filePath}`}
+            onLoadSuccess={handleLoadSuccess}
+            loading={
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Loading PDF...</p>
+                </div>
+              </div>
+            }
+            error={
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <p className="text-sm text-destructive">Failed to load PDF</p>
+                </div>
+              </div>
+            }
+          >
+            <Page
+              pageNumber={currentPage}
+              scale={scale}
+              renderTextLayer={true}
+              renderAnnotationLayer={true}
+              className="pdf-page"
+            />
+          </Document>
+        </div>
+      </div>
+
+      {/* Page Navigation Footer */}
+      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+        {Array.from({ length: Math.min(numPages, 10) }, (_, i) => {
+          let pageNum;
+          if (numPages <= 10) {
+            pageNum = i + 1;
+          } else if (currentPage <= 5) {
+            pageNum = i + 1;
+          } else if (currentPage >= numPages - 4) {
+            pageNum = numPages - 9 + i;
+          } else {
+            pageNum = currentPage - 5 + i;
+          }
+
+          return (
+            <Button
+              key={pageNum}
+              variant={currentPage === pageNum ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => goToPage(pageNum)}
+            >
+              {pageNum}
+            </Button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
