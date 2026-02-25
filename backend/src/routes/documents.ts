@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { fileURLToPath } from 'url';
 import { dirname, join, basename } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { unlink } from 'fs/promises';
 import extractPDF from '../services/pdfExtractor.js';
 import axios from 'axios';
 
@@ -137,6 +138,12 @@ router.post('/upload', upload.single('pdf'), async (req, res, next) => {
     });
   } catch (error) {
     console.error('Error processing PDF upload:', error);
+    // Clean up the uploaded file if processing fails
+    if (req.file?.path) {
+      unlink(req.file.path).catch(unlinkErr =>
+        console.error('Failed to cleanup orphaned upload:', unlinkErr)
+      );
+    }
     next(error);
   }
 });

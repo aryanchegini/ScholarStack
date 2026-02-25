@@ -79,7 +79,10 @@ ${context}`;
       max_tokens: 1000,
     });
 
-    const aiResponse = response.choices[0].message.content || '';
+    const aiResponse = response.choices?.[0]?.message?.content;
+    if (!aiResponse) {
+      throw new Error('OpenAI returned an empty response (possibly due to a content filter).');
+    }
 
     // Extract citations from the response
     const citations = extractCitations(aiResponse, relevantChunks, docMap);

@@ -1,5 +1,5 @@
 import pdfParse from 'pdf-parse';
-import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 
 export interface ExtractedPDF {
   text: string;
@@ -8,7 +8,7 @@ export interface ExtractedPDF {
 
 export default async function extractPDF(filePath: string): Promise<ExtractedPDF> {
   try {
-    const dataBuffer = readFileSync(filePath);
+    const dataBuffer = await readFile(filePath);
     const data = await pdfParse(dataBuffer);
 
     return {

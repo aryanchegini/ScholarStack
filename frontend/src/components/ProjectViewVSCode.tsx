@@ -106,15 +106,15 @@ export default function ProjectViewVSCode() {
     mutationFn: async (documentId: string) => {
       return documentsApi.delete(documentId);
     },
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ['documents', id] });
       queryClient.invalidateQueries({ queryKey: ['project', id] });
       setDeleteDialogOpen(false);
-      const deletedId = documentToDelete;
       setDocumentToDelete(null);
-      // Clear selected document if it was deleted
+      // Use fresh query data rather than stale closure to pick next document
       if (selectedDocumentId === deletedId) {
-        setSelectedDocumentId(documents?.find(d => d.id !== deletedId)?.id || null);
+        const freshDocs = queryClient.getQueryData<typeof documents>(['documents', id]);
+        setSelectedDocumentId(freshDocs?.find(d => d.id !== deletedId)?.id ?? null);
       }
       toast({
         title: 'Document deleted',
@@ -217,11 +217,10 @@ export default function ProjectViewVSCode() {
             documents.map((doc) => (
               <div
                 key={doc.id}
-                className={`group relative rounded text-sm flex items-center transition-colors ${
-                  selectedDocumentId === doc.id
+                className={`group relative rounded text-sm flex items-center transition-colors ${selectedDocumentId === doc.id
                     ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 <button
                   onClick={() => setSelectedDocumentId(doc.id)}

@@ -142,6 +142,11 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    const existing = await prisma.note.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
     await prisma.note.delete({
       where: { id },
     });

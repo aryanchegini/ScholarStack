@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import HighlightOverlay from './HighlightOverlay';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -24,6 +25,7 @@ interface PDFViewerProps {
 export default function PDFViewer({ document, onAddToNotebook }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageInput, setPageInput] = useState('1');
   const [scale, setScale] = useState(1.0);
   const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -33,7 +35,22 @@ export default function PDFViewer({ document, onAddToNotebook }: PDFViewerProps)
   };
 
   const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, numPages)));
+    const clamped = Math.max(1, Math.min(page, numPages));
+    setCurrentPage(clamped);
+    setPageInput(String(clamped));
+  };
+
+  const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPageInput(e.target.value);
+  };
+
+  const handlePageInputCommit = () => {
+    const parsed = parseInt(pageInput, 10);
+    if (!isNaN(parsed)) {
+      goToPage(parsed);
+    } else {
+      setPageInput(String(currentPage));
+    }
   };
 
   const zoomIn = () => setScale(s => Math.min(s + 0.25, 3));
@@ -79,9 +96,22 @@ export default function PDFViewer({ document, onAddToNotebook }: PDFViewerProps)
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium">
-            Page {currentPage} of {numPages}
-          </span>
+
+          {/* Page number input */}
+          <div className="flex items-center gap-1.5 text-sm">
+            <Input
+              type="number"
+              min={1}
+              max={numPages || 1}
+              value={pageInput}
+              onChange={handlePageInputChange}
+              onBlur={handlePageInputCommit}
+              onKeyDown={(e) => e.key === 'Enter' && handlePageInputCommit()}
+              className="h-7 w-14 text-center text-sm px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="text-muted-foreground">of {numPages}</span>
+          </div>
+
           <Button
             variant="ghost"
             size="icon"
@@ -140,34 +170,6 @@ export default function PDFViewer({ document, onAddToNotebook }: PDFViewerProps)
             />
           </Document>
         </div>
-      </div>
-
-      {/* Page Navigation Footer */}
-      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-        {Array.from({ length: Math.min(numPages, 10) }, (_, i) => {
-          let pageNum;
-          if (numPages <= 10) {
-            pageNum = i + 1;
-          } else if (currentPage <= 5) {
-            pageNum = i + 1;
-          } else if (currentPage >= numPages - 4) {
-            pageNum = numPages - 9 + i;
-          } else {
-            pageNum = currentPage - 5 + i;
-          }
-
-          return (
-            <Button
-              key={pageNum}
-              variant={currentPage === pageNum ? 'default' : 'ghost'}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => goToPage(pageNum)}
-            >
-              {pageNum}
-            </Button>
-          );
-        })}
       </div>
     </div>
   );
