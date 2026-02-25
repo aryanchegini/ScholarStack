@@ -1,11 +1,12 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { FolderKanban, Settings, PlusCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { FolderKanban, Settings, Search } from 'lucide-react';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
+import { ModeToggle } from '@/components/mode-toggle';
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderKanban },
+  { name: 'Search', href: '/search', icon: Search },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -50,10 +51,11 @@ export default function MainLayout() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border">
-          <p className="text-xs text-muted-foreground text-center">
+        <div className="p-4 border-t border-border flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
             ScholarStack v1.0.0
           </p>
+          <ModeToggle />
         </div>
       </aside>
 
