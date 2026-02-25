@@ -39,51 +39,49 @@ export default function Notebook({ projectId }: NotebookProps) {
     },
   });
 
-  // Load saved note on mount
+  // Load saved note on mount — server content always wins over localStorage draft
   useEffect(() => {
-    const loadNote = async () => {
-      try {
-        const notes = await notesApi.getByProject(projectId);
-        if (notes.length > 0 && notes[0].content) {
-          setCurrentNoteId(notes[0].id);
-          try {
-            // Try to parse the content as JSON (TipTap format)
-            const parsedContent = typeof notes[0].content === 'string'
-              ? JSON.parse(notes[0].content)
-              : notes[0].content;
-
-            // Set the parsed content
-            editor?.commands.setContent(parsedContent);
-          } catch (parseError) {
-            // If parsing fails, treat it as plain text
-            console.warn('Could not parse note content as JSON, treating as text:', parseError);
-            editor?.commands.setContent(notes[0].content);
-          }
-        } else {
-          setCurrentNoteId(null);
-        }
-      } catch (error) {
-        console.error('Failed to load note:', error);
-        toast({
-          title: 'Failed to load note',
-          description: error instanceof Error ? error.message : 'Unknown error',
-          variant: 'destructive',
-        });
-      }
-    };
-
     if (editor) {
-      loadNote();
-
-      // Load draft from localStorage (prioritize over server content for freshest data)
-      const draft = localStorage.getItem(NOTE_CONTENT_KEY(projectId));
-      if (draft) {
+      const loadNote = async () => {
         try {
-          editor.commands.setContent(draft);
-        } catch (e) {
-          console.error('Failed to load draft:', e);
+          const notes = await notesApi.getByProject(projectId);
+          if (notes.length > 0 && notes[0].content) {
+            setCurrentNoteId(notes[0].id);
+            try {
+              const parsedContent = typeof notes[0].content === 'string'
+                ? JSON.parse(notes[0].content)
+                : notes[0].content;
+              editor?.commands.setContent(parsedContent);
+              // Server content loaded — clear any stale draft
+              localStorage.removeItem(NOTE_CONTENT_KEY(projectId));
+            } catch (parseError) {
+              console.warn('Could not parse note content as JSON, treating as text:', parseError);
+              editor?.commands.setContent(notes[0].content);
+              localStorage.removeItem(NOTE_CONTENT_KEY(projectId));
+            }
+          } else {
+            setCurrentNoteId(null);
+            // No server content — restore draft from localStorage if present
+            const draft = localStorage.getItem(NOTE_CONTENT_KEY(projectId));
+            if (draft) {
+              try {
+                editor.commands.setContent(draft);
+              } catch (e) {
+                console.error('Failed to load draft:', e);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load note:', error);
+          toast({
+            title: 'Failed to load note',
+            description: error instanceof Error ? error.message : 'Unknown error',
+            variant: 'destructive',
+          });
         }
-      }
+      };
+
+      loadNote();
     }
   }, [projectId, editor, toast]);
 
@@ -427,11 +425,10 @@ function ToolbarButton({ children, onClick, isActive, label }: ToolbarButtonProp
   return (
     <button
       onClick={onClick}
-      className={`h-8 w-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${
-        isActive
-          ? 'bg-primary text-primary-foreground'
-          : 'hover:bg-accent hover:text-accent-foreground'
-      }`}
+      className={`h-8 w-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${isActive
+        ? 'bg-primary text-primary-foreground'
+        : 'hover:bg-accent hover:text-accent-foreground'
+        }`}
       title={label}
     >
       {children}

@@ -30,8 +30,8 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'Please set your API key in settings' });
     }
 
-    // Find relevant chunks from documents
-    const relevantChunks = await findRelevantChunks(projectId, query, 5);
+    // Find relevant chunks from documents (pass apiKey to enable vector search)
+    const relevantChunks = await findRelevantChunks(projectId, query, 5, apiKey);
 
     if (relevantChunks.length === 0) {
       return res.json({

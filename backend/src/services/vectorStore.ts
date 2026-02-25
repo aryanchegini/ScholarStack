@@ -54,6 +54,12 @@ export async function findRelevantChunks(
     return keywordSearch(allChunks, query, topK);
   }
 
+  // If no chunks have embeddings yet, fall back to keyword search
+  if (chunksWithEmbeddings.length === 0) {
+    console.warn('No chunks with embeddings found, falling back to keyword search');
+    return keywordSearch(allChunks, query, topK);
+  }
+
   // Generate query embedding
   const queryEmbedding = await generateQueryEmbedding(query, apiKey);
 
