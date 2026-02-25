@@ -84,7 +84,6 @@ router.post('/upload', upload.single('pdf'), async (req, res, next) => {
         filename: req.file.originalname,
         filePath: req.file.path,
         pageCount,
-        content: text.slice(0, 100000), // Store first 100k chars for preview
       }
     });
     console.log('Document created:', document.id);
@@ -146,7 +145,7 @@ router.get('/project/:projectId', async (req, res, next) => {
     });
 
     // Add fileUrl for each document
-    const documentsWithUrls = documents.map(doc => {
+    const documentsWithUrls = documents.map((doc: any) => {
       const filename = doc.filePath.split('/').pop();
       return {
         ...doc,
