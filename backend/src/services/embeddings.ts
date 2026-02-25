@@ -19,18 +19,15 @@ export async function generateEmbeddings(
 
     const embeddings: number[][] = [];
 
-    // Process chunks in batches of 50 (smaller for better memory management)
-    for (let i = 0; i < chunks.length; i += 50) {
-      const batch = chunks.slice(i, i + 50);
-
+    // Process chunks one at a time to minimize memory usage
+    for (let i = 0; i < chunks.length; i++) {
       const response = await openai.embeddings.create({
         model: 'text-embedding-3-small',
-        input: batch,
+        input: [chunks[i]],
         encoding_format: 'float',
       });
 
-      const batchEmbeddings = response.data.map(item => item.embedding);
-      embeddings.push(...batchEmbeddings);
+      embeddings.push(response.data[0].embedding);
     }
 
     return embeddings;

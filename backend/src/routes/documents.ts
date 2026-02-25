@@ -5,8 +5,6 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import extractPDF from '../services/pdfExtractor.js';
-import { chunkText } from '../services/textChunker.js';
-import { generateEmbeddings } from '../services/embeddings.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -78,7 +76,7 @@ router.post('/upload', upload.single('pdf'), async (req, res, next) => {
     const { text, pageCount } = await extractPDF(req.file.path);
     console.log('Text extracted:', { textLength: text.length, pageCount });
 
-    // Create document record
+    // Create document record - skip chunking for now to keep it simple
     console.log('Creating document record...');
     const document = await prisma.document.create({
       data: {
@@ -86,73 +84,19 @@ router.post('/upload', upload.single('pdf'), async (req, res, next) => {
         filename: req.file.originalname,
         filePath: req.file.path,
         pageCount,
+        content: text.slice(0, 100000), // Store first 100k chars for preview
       }
     });
     console.log('Document created:', document.id);
 
-    // Chunk the text and generate embeddings
-    console.log('Chunking text...');
-    const chunks = chunkText(text, 1500, 150); // Larger chunks, less overlap to reduce memory
-    console.log('Text chunked into', chunks.length, 'chunks');
-
-    // Get user's API key for embeddings
-    const user = await prisma.user.findUnique({
-      where: { id: project.userId }
-    });
-    const apiKey = user?.apiKey;
-    console.log('User API key available:', !!apiKey);
-
-    // Save chunks in batches to avoid memory issues
-    console.log('Saving chunks to database in batches...');
-    const BATCH_SIZE = 10; // Smaller batch size to reduce memory spikes
-
-    if (apiKey) {
-      // Process with embeddings in batches
-      for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-        const batchChunks = chunks.slice(i, Math.min(i + BATCH_SIZE, chunks.length));
-        const batchStartIndex = i;
-
-        console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(chunks.length / BATCH_SIZE)}...`);
-
-        // Generate embeddings for this batch
-        const batchEmbeddings = await generateEmbeddings(batchChunks, apiKey);
-
-        // Save this batch
-        await prisma.documentChunk.createMany({
-          data: batchChunks.map((chunk, index) => ({
-            documentId: document.id,
-            chunkIndex: batchStartIndex + index,
-            content: chunk,
-            embedding: batchEmbeddings[index]?.length ? JSON.stringify(batchEmbeddings[index]) : null,
-          }))
-        });
-
-        // Clear references to help GC
-        batchChunks.length = 0;
-        batchEmbeddings.length = 0;
-      }
-    } else {
-      // Save without embeddings in batches
-      for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-        const batchChunks = chunks.slice(i, Math.min(i + BATCH_SIZE, chunks.length));
-        const batchStartIndex = i;
-
-        await prisma.documentChunk.createMany({
-          data: batchChunks.map((chunk, index) => ({
-            documentId: document.id,
-            chunkIndex: batchStartIndex + index,
-            content: chunk,
-            embedding: null,
-          }))
-        });
-      }
-    }
-
-    console.log('All chunks saved successfully');
+    // Return document with a URL that the frontend can use
+    const documentWithUrl = {
+      ...document,
+      fileUrl: `/uploads/${req.file.filename}`,
+    };
 
     res.status(201).json({
-      document,
-      chunksProcessed: chunks.length,
+      document: documentWithUrl,
     });
   } catch (error) {
     console.error('Error processing PDF upload:', error);
@@ -178,7 +122,14 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    res.json(document);
+    // Add fileUrl for frontend
+    const filename = document.filePath.split('/').pop();
+    const documentWithUrl = {
+      ...document,
+      fileUrl: `/uploads/${filename}`,
+    };
+
+    res.json(documentWithUrl);
   } catch (error) {
     next(error);
   }
@@ -194,7 +145,16 @@ router.get('/project/:projectId', async (req, res, next) => {
       orderBy: { uploadedAt: 'desc' }
     });
 
-    res.json(documents);
+    // Add fileUrl for each document
+    const documentsWithUrls = documents.map(doc => {
+      const filename = doc.filePath.split('/').pop();
+      return {
+        ...doc,
+        fileUrl: `/uploads/${filename}`,
+      };
+    });
+
+    res.json(documentsWithUrls);
   } catch (error) {
     next(error);
   }
