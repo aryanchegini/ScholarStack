@@ -5,9 +5,9 @@
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
-    "dev": "node --max-old-space-size=8192 $(which tsx) watch src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node --max-old-space-size=8192 dist/server.js",
+    "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
@@ -16,6 +16,7 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.22.0",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",

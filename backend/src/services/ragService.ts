@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaClient } from '@prisma/client';
 import type { ChunkWithScore } from './vectorStore.js';
 
@@ -28,9 +29,11 @@ export async function generateChatResponse(
   query: string,
   relevantChunks: ChunkWithScore[],
   conversationHistory: ChatMessage[],
-  apiKey: string
+  apiKey: string,
+  allDocumentNames: string[] = [],
+  customAiModel?: string | null
 ): Promise<ChatResponse> {
-  const openai = new OpenAI({ apiKey });
+  const isOpenAI = apiKey.startsWith('sk-');
 
   // Get document names for citations
   const documents = await prisma.document.findMany({
@@ -43,18 +46,24 @@ export async function generateChatResponse(
 
   const docMap = new Map(documents.map(d => [d.id, d.filename]));
 
-  // Build context from relevant chunks
+  // Build context from relevant chunks, explicitly attributing the document name
   const context = relevantChunks
     .map((chunk, index) => {
-      return `[Source ${index + 1}] ${chunk.content}`;
+      const docName = docMap.get(chunk.documentId) || 'Unknown Document';
+      return `[Source ${index + 1}] (From document: ${docName})\n${chunk.content}`;
     })
     .join('\n\n');
 
+  // Build the string list of all available documents
+  const availableDocsString = allDocumentNames.length > 0
+    ? `\n\nYou have access to the following documents in this project:\n${allDocumentNames.map(name => `- ${name}`).join('\n')}`
+    : '';
+
   // Build the system prompt
-  const systemPrompt = `You are a helpful research assistant for ScholarStack. Your role is to help researchers understand and synthesize information from their uploaded documents.
+  const systemPrompt = `You are a helpful research assistant for ScholarStack. Your role is to help researchers understand and synthesize information from their uploaded documents.${availableDocsString}
 
 IMPORTANT INSTRUCTIONS:
-1. Answer questions using ONLY the information provided in the context below.
+1. Answer questions using ONLY the information provided in the context below. If asked about what documents you have access to, base your answer on the list provided above.
 2. If the context doesn't contain enough information to answer the question, say so clearly.
 3. ALWAYS cite your sources using [Source X] notation when referencing information.
 4. When citing, try to be specific about which source supports each claim.
@@ -72,14 +81,48 @@ ${context}`;
   ];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: messages as any,
-      temperature: 0.3,
-      max_tokens: 1000,
-    });
+    let aiResponse = '';
 
-    const aiResponse = response.choices[0].message.content || '';
+    if (isOpenAI) {
+      const openai = new OpenAI({ apiKey });
+      const modelName = customAiModel || 'gpt-4o-mini';
+      const response = await openai.chat.completions.create({
+        model: modelName,
+        messages: messages as any,
+        temperature: 0.3,
+        max_tokens: 1000,
+      });
+      aiResponse = response.choices[0].message.content || '';
+    } else {
+      // Use Gemini
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const modelName = customAiModel || 'gemini-2.5-flash';
+      const model = genAI.getGenerativeModel({ model: modelName });
+
+      // Gemini handles system instruction specifically
+      const geminiModel = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: systemPrompt
+      });
+
+      // Convert history to Gemini format (user vs model)
+      const formattedHistory = conversationHistory.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+      // In Gemini, we can just send the chat query and history if it's instantiating a ChatSession
+      const chat = geminiModel.startChat({
+        history: formattedHistory,
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1000,
+        }
+      });
+
+      const response = await chat.sendMessage(query);
+      aiResponse = response.response.text();
+    }
 
     // Extract citations from the response
     const citations = extractCitations(aiResponse, relevantChunks, docMap);

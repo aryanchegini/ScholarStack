@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Upload, X, Plus, MessageSquare, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, MessageSquare, FileText, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -181,11 +181,10 @@ export default function ProjectView() {
               documents.map((doc) => (
                 <div
                   key={doc.id}
-                  className={`group relative rounded-md text-sm transition-colors ${
-                    selectedDocumentId === doc.id
+                  className={`group relative rounded-md text-sm transition-colors ${selectedDocumentId === doc.id
                       ? 'bg-primary'
                       : 'hover:bg-accent'
-                  }`}
+                    }`}
                 >
                   <button
                     onClick={() => setSelectedDocumentId(doc.id)}
@@ -304,8 +303,17 @@ export default function ProjectView() {
                 id="file-upload"
               />
               <label htmlFor="file-upload">
-                <Button asChild>
-                  <span>Select File</span>
+                <Button asChild disabled={uploadDocumentMutation.isPending}>
+                  <span>
+                    {uploadDocumentMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      'Select File'
+                    )}
+                  </span>
                 </Button>
               </label>
             </div>

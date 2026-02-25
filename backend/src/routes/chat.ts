@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 // Chat endpoint with RAG
 router.post('/', async (req, res, next) => {
   try {
-    const { projectId, query, conversationHistory = [] } = req.body;
+    const { projectId, query, conversationHistory = [], sessionId } = req.body;
 
     if (!projectId || !query) {
       return res.status(400).json({ error: 'Project ID and query are required' });
@@ -30,8 +30,14 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'Please set your API key in settings' });
     }
 
-    // Find relevant chunks from documents
-    const relevantChunks = await findRelevantChunks(projectId, query, 5);
+    // Find relevant chunks from documents (pull 20 chunks to ensure enough context across papers for summaries)
+    const relevantChunks = await findRelevantChunks(projectId, query, 20, apiKey);
+
+    // Get all documents in the project to provide full context to the AI
+    const allProjectDocuments = await prisma.document.findMany({
+      where: { projectId },
+      select: { filename: true }
+    });
 
     if (relevantChunks.length === 0) {
       return res.json({
@@ -46,12 +52,46 @@ router.post('/', async (req, res, next) => {
       query,
       relevantChunks,
       conversationHistory,
-      apiKey
+      apiKey,
+      allProjectDocuments.map(d => d.filename),
+      (project.user as any)?.aiModel
     );
+
+    // Save chat history to database
+    let activeSessionId = sessionId;
+    if (!activeSessionId) {
+      const newSession = await prisma.chatSession.create({
+        data: {
+          projectId,
+          title: query.substring(0, 50) + (query.length > 50 ? '...' : ''),
+        }
+      });
+      activeSessionId = newSession.id;
+    }
+
+    // Save User message
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: activeSessionId,
+        role: 'user',
+        content: query,
+      }
+    });
+
+    // Save Assistant message
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: activeSessionId,
+        role: 'assistant',
+        content: response,
+        citations: JSON.stringify(citations),
+      }
+    });
 
     res.json({
       response,
       citations,
+      sessionId: activeSessionId,
       sources: relevantChunks.map(chunk => ({
         chunkId: chunk.id,
         documentId: chunk.documentId,
@@ -63,14 +103,39 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-// Get chat history (placeholder for future implementation)
-router.get('/history/:projectId', async (req, res, next) => {
+// Get all chat sessions for a project
+router.get('/project/:projectId', async (req, res, next) => {
   try {
     const { projectId } = req.params;
 
-    // For MVP, we're not storing chat history
-    // This endpoint is a placeholder for future implementation
-    res.json([]);
+    const sessions = await prisma.chatSession.findMany({
+      where: { projectId },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+      }
+    });
+
+    res.json(sessions);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get all messages for a specific chat session
+router.get('/session/:sessionId', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const messages = await prisma.chatMessage.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    res.json(messages);
   } catch (error) {
     next(error);
   }

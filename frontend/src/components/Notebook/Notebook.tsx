@@ -133,7 +133,7 @@ export default function Notebook({ projectId }: NotebookProps) {
       } finally {
         setIsSaving(false);
       }
-    }, 1500); // Increased debounce time to reduce save frequency
+    }, 60000); // Increased debounce time to reduce save frequency (1 minute)
 
     return () => clearTimeout(timeout);
   }, [editor?.getJSON(), projectId, editor]);
@@ -427,11 +427,10 @@ function ToolbarButton({ children, onClick, isActive, label }: ToolbarButtonProp
   return (
     <button
       onClick={onClick}
-      className={`h-8 w-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${
-        isActive
+      className={`h-8 w-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${isActive
           ? 'bg-primary text-primary-foreground'
           : 'hover:bg-accent hover:text-accent-foreground'
-      }`}
+        }`}
       title={label}
     >
       {children}

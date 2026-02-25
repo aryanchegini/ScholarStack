@@ -91,22 +91,26 @@ export const notesApi = {
 
 // Chat API
 export const chatApi = {
-  send: (projectId: string, query: string, conversationHistory: ChatMessage[] = []) =>
+  send: (projectId: string, query: string, conversationHistory: ChatMessage[] = [], sessionId?: string) =>
     fetchApi<ChatResponse>('/chat', {
       method: 'POST',
-      body: JSON.stringify({ projectId, query, conversationHistory }),
+      body: JSON.stringify({ projectId, query, conversationHistory, sessionId }),
     }),
+  getSessions: (projectId: string) =>
+    fetchApi<ChatSession[]>(`/chat/project/${projectId}`),
+  getSessionMessages: (sessionId: string) =>
+    fetchApi<ChatMessage[]>(`/chat/session/${sessionId}`),
 };
 
 // User API
 export const userApi = {
-  setApiKey: (email: string, apiKey: string) =>
-    fetchApi<{ id: string; email: string; hasApiKey: boolean }>('/user/api-key', {
+  setApiKey: (email: string, apiKey: string, aiModel?: string) =>
+    fetchApi<{ id: string; email: string; hasApiKey: boolean; aiModel?: string }>('/user/api-key', {
       method: 'POST',
-      body: JSON.stringify({ email, apiKey }),
+      body: JSON.stringify({ email, apiKey, aiModel }),
     }),
   getApiKeyStatus: (email?: string) =>
-    fetchApi<{ hasApiKey: boolean; email: string }>(
+    fetchApi<{ hasApiKey: boolean; email: string; aiModel?: string }>(
       `/user/api-key/status?email=${email || 'demo@scholarstack.local'}`
     ),
   deleteApiKey: (email: string) =>
@@ -170,9 +174,21 @@ export interface Highlight {
   createdAt: string;
 }
 
+export interface ChatSession {
+  id: string;
+  projectId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ChatMessage {
+  id?: string;
+  sessionId?: string;
   role: 'system' | 'user' | 'assistant';
   content: string;
+  citations?: string; // stringified JSON from backend
+  createdAt?: string;
 }
 
 export interface ChatResponse {

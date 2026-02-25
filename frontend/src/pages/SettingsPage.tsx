@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Key, Eye, EyeOff, Save, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 export default function SettingsPage() {
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState('');
+  const [aiModel, setAiModel] = useState('');
   const [showKey, setShowKey] = useState(false);
 
   const { data: keyStatus, isLoading } = useQuery({
@@ -18,18 +19,25 @@ export default function SettingsPage() {
     queryFn: () => userApi.getApiKeyStatus(),
   });
 
+  // Populate AI model setting from backend
+  useEffect(() => {
+    if (keyStatus) {
+      setAiModel(keyStatus.aiModel || '');
+    }
+  }, [keyStatus]);
+
   const setKeyMutation = useMutation({
-    mutationFn: (key: string) => userApi.setApiKey('demo@scholarstack.local', key),
+    mutationFn: (key: string) => userApi.setApiKey('demo@scholarstack.local', key, aiModel),
     onSuccess: () => {
       setApiKey('');
       toast({
-        title: 'API Key Saved',
-        description: 'Your API key has been saved securely.',
+        title: 'Settings Saved',
+        description: 'Your API key and model preferences have been saved securely.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Error Saving API Key',
+        title: 'Error Saving Settings',
         description: error.message,
         variant: 'destructive',
       });
@@ -63,6 +71,11 @@ export default function SettingsPage() {
       return;
     }
     setKeyMutation.mutate(apiKey);
+  };
+
+  const handleSaveModel = () => {
+    // Save just the model since API key is already configured
+    setKeyMutation.mutate(''); // Empty string apiKey triggers partial update on backend if aiModel is present
   };
 
   return (
@@ -108,14 +121,42 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <Button
-                  variant="destructive"
-                  onClick={() => deleteKeyMutation.mutate()}
-                  disabled={deleteKeyMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Remove API Key
-                </Button>
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div className="space-y-2">
+                    <Label htmlFor="configuredAiModel">Custom AI Model (Optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Enter a specific model string to override the default. For Google keys, default is <code className="bg-muted px-1 py-0.5 rounded">gemini-2.5-flash</code>. For OpenAI, default is <code className="bg-muted px-1 py-0.5 rounded">gpt-4o-mini</code>.
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        id="configuredAiModel"
+                        type="text"
+                        placeholder="e.g. gemini-1.5-pro"
+                        value={aiModel}
+                        onChange={(e) => setAiModel(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveModel()}
+                      />
+                      <Button
+                        onClick={handleSaveModel}
+                        disabled={setKeyMutation.isPending}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Model
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    variant="destructive"
+                    onClick={() => deleteKeyMutation.mutate()}
+                    disabled={deleteKeyMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove API Key
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -167,11 +208,28 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="text-xs text-muted-foreground">
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div className="space-y-2">
+                    <Label htmlFor="aiModel">Custom AI Model (Optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Enter a specific model string to override the default.
+                    </p>
+                    <Input
+                      id="aiModel"
+                      type="text"
+                      placeholder="e.g. gemini-1.5-pro"
+                      value={aiModel}
+                      onChange={(e) => setAiModel(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveKey()}
+                    />
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground pt-2">
                   <p className="font-medium mb-1">Supported providers:</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>OpenAI (GPT-4, GPT-3.5, Embeddings)</li>
-                    <li>Anthropic (Claude 3.5 Sonnet, Haiku)</li>
+                    <li>Google Gemini (starts with AIza)</li>
+                    <li>OpenAI (starts with sk-)</li>
                   </ul>
                 </div>
               </div>

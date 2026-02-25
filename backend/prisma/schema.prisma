@@ -11,6 +11,7 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   apiKey    String?
+  aiModel   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   projects  Project[]
@@ -22,10 +23,11 @@ model Project {
   userId    String
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  documents Document[]
-  notes     Note[]
-  highlights Highlight[]
+  updatedAt   DateTime   @updatedAt
+  documents   Document[]
+  notes       Note[]
+  highlights  Highlight[]
+  chatSessions ChatSession[]
 }
 
 model Document {
@@ -72,4 +74,24 @@ model Highlight {
   createdAt    DateTime @default(now())
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  projectId String
+  title     String        @default("New Chat")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  role      String      // 'user' or 'assistant'
+  content   String
+  citations String?     // JSON stringified array of citations
+  createdAt DateTime    @default(now())
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }

@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
  * Generate embeddings for an array of text chunks
- * For MVP, uses OpenAI's embedding API
+ * Supports both OpenAI and Google Gemini API keys
  */
 
 export async function generateEmbeddings(
@@ -14,26 +15,42 @@ export async function generateEmbeddings(
     return chunks.map(() => []);
   }
 
-  try {
-    const openai = new OpenAI({ apiKey });
+  const isOpenAI = apiKey.startsWith('sk-');
 
+  try {
     const embeddings: number[][] = [];
 
-    // Process chunks one at a time to minimize memory usage
-    for (let i = 0; i < chunks.length; i++) {
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: [chunks[i]],
-        encoding_format: 'float',
-      });
+    if (isOpenAI) {
+      const openai = new OpenAI({ apiKey });
+      // Process chunks one at a time to minimize memory usage
+      for (let i = 0; i < chunks.length; i++) {
+        const response = await openai.embeddings.create({
+          model: 'text-embedding-3-small',
+          input: [chunks[i]],
+          encoding_format: 'float',
+        });
+        embeddings.push(response.data[0].embedding);
+      }
+    } else {
+      // Use Google Gemini API
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
 
-      embeddings.push(response.data[0].embedding);
+      for (let i = 0; i < chunks.length; i++) {
+        const result = await model.embedContent(chunks[i]);
+        embeddings.push(result.embedding.values);
+      }
     }
 
     return embeddings;
-  } catch (error) {
-    console.error('Error generating embeddings:', error);
-    throw new Error('Failed to generate embeddings');
+  } catch (error: any) {
+    if (error.response) {
+      console.error('API Error response data:', error.response.data);
+      console.error('API Error response status:', error.response.status);
+    } else {
+      console.error('Error generating embeddings:', error.message || error);
+    }
+    throw new Error(`Failed to generate embeddings: ${error.message || 'Unknown error'}`);
   }
 }
 
@@ -44,16 +61,23 @@ export async function generateQueryEmbedding(
   query: string,
   apiKey: string
 ): Promise<number[]> {
-  const openai = new OpenAI({ apiKey });
+  const isOpenAI = apiKey.startsWith('sk-');
 
   try {
-    const response = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: query,
-      encoding_format: 'float',
-    });
-
-    return response.data[0].embedding;
+    if (isOpenAI) {
+      const openai = new OpenAI({ apiKey });
+      const response = await openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: query,
+        encoding_format: 'float',
+      });
+      return response.data[0].embedding;
+    } else {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+      const result = await model.embedContent(query);
+      return result.embedding.values;
+    }
   } catch (error) {
     console.error('Error generating query embedding:', error);
     throw new Error('Failed to generate query embedding');

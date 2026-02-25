@@ -15,6 +15,7 @@ import {
   Maximize2,
   Minimize2,
   Trash2,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -217,11 +218,10 @@ export default function ProjectViewVSCode() {
             documents.map((doc) => (
               <div
                 key={doc.id}
-                className={`group relative rounded text-sm flex items-center transition-colors ${
-                  selectedDocumentId === doc.id
+                className={`group relative rounded text-sm flex items-center transition-colors ${selectedDocumentId === doc.id
                     ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 <button
                   onClick={() => setSelectedDocumentId(doc.id)}
@@ -437,8 +437,17 @@ export default function ProjectViewVSCode() {
                 id="file-upload"
               />
               <label htmlFor="file-upload">
-                <Button asChild>
-                  <span>Select File</span>
+                <Button asChild disabled={uploadDocumentMutation.isPending}>
+                  <span>
+                    {uploadDocumentMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      'Select File'
+                    )}
+                  </span>
                 </Button>
               </label>
             </div>

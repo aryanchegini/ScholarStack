@@ -2,8 +2,8 @@ import express from 'express';
 import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { dirname, join, basename } from 'path';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import extractPDF from '../services/pdfExtractor.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -71,19 +71,55 @@ router.post('/upload', upload.single('pdf'), async (req, res, next) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    // Get user's API key
+    const projectWithUser = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { user: true }
+    });
+
+    const apiKey = projectWithUser?.user?.apiKey || undefined;
+
     console.log('Extracting text from PDF...');
     // Extract text from PDF
     const { text, pageCount } = await extractPDF(req.file.path);
     console.log('Text extracted:', { textLength: text.length, pageCount });
 
-    // Create document record - skip chunking for now to keep it simple
-    console.log('Creating document record...');
+    // Chunk the text into meaningful pieces (simple 1000 char overlap window for MVP)
+    console.log('Chunking text and generating embeddings...');
+    const chunkSize = 1000;
+    const overlap = 200;
+    const chunks: string[] = [];
+
+    for (let i = 0; i < text.length; i += chunkSize - overlap) {
+      chunks.push(text.slice(i, i + chunkSize));
+    }
+
+    // Generate embeddings
+    let embeddings: number[][] = [];
+    if (apiKey) {
+      try {
+        const { generateEmbeddings } = await import('../services/embeddings.js');
+        embeddings = await generateEmbeddings(chunks, apiKey);
+      } catch (embeddingError) {
+        console.error('Warning: Failed to generate embeddings. Document will be saved without AI context.', embeddingError);
+      }
+    }
+
+    // Create document record and chunks in a transaction
+    console.log('Saving document and embedded chunks to database...');
     const document = await prisma.document.create({
       data: {
         projectId,
         filename: req.file.originalname,
         filePath: req.file.path,
         pageCount,
+        chunks: {
+          create: chunks.map((chunk, i) => ({
+            chunkIndex: i,
+            content: chunk,
+            embedding: apiKey && embeddings[i] ? JSON.stringify(embeddings[i]) : null
+          }))
+        }
       }
     });
     console.log('Document created:', document.id);
@@ -122,7 +158,7 @@ router.get('/:id', async (req, res, next) => {
     }
 
     // Add fileUrl for frontend
-    const filename = document.filePath.split('/').pop();
+    const filename = basename(document.filePath);
     const documentWithUrl = {
       ...document,
       fileUrl: `/uploads/${filename}`,
@@ -146,7 +182,7 @@ router.get('/project/:projectId', async (req, res, next) => {
 
     // Add fileUrl for each document
     const documentsWithUrls = documents.map((doc: any) => {
-      const filename = doc.filePath.split('/').pop();
+      const filename = basename(doc.filePath);
       return {
         ...doc,
         fileUrl: `/uploads/${filename}`,
@@ -163,6 +199,14 @@ router.get('/project/:projectId', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    const document = await prisma.document.findUnique({
+      where: { id },
+    });
+
+    if (document && document.filePath && existsSync(document.filePath)) {
+      unlinkSync(document.filePath);
+    }
 
     await prisma.document.delete({
       where: { id },
