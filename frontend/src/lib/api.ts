@@ -74,6 +74,11 @@ export const documentsApi = {
     fetchApi<Document[]>(`/documents/project/${projectId}`),
   delete: (id: string) =>
     fetchApi<void>(`/documents/${id}`, { method: 'DELETE' }),
+  addExternal: (projectId: string, url: string, filename: string) =>
+    fetchApi<{ document: Document }>('/documents/external', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, url, filename }),
+    }),
 };
 
 // Notes API
@@ -114,6 +119,12 @@ export const userApi = {
       method: 'DELETE',
       body: JSON.stringify({ email }),
     }),
+};
+
+// Search API
+export const searchApi = {
+  searchPapers: (query: string) =>
+    fetchApi<SearchResult[]>(`/search/papers?query=${encodeURIComponent(query)}`),
 };
 
 // Types
@@ -192,4 +203,16 @@ export interface Source {
   chunkId: string;
   documentId: string;
   content: string;
+}
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  authors: string[];
+  summary: string;
+  publishedDate: string;
+  updatedDate: string;
+  url: string;
+  pdfUrl?: string;
+  source: string;
 }

@@ -2,12 +2,21 @@ import express from 'express';
 import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, basename } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import extractPDF from '../services/pdfExtractor.js';
+import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const getFileUrl = (filePath: string) => {
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    return filePath;
+  }
+  // Use basename() to correctly handle both Windows (\) and Unix (/) paths
+  return `/uploads/${basename(filePath)}`;
+};
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -40,6 +49,35 @@ const upload = multer({
   },
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB limit
+  }
+});
+
+// Proxy route for external PDFs to bypass CORS
+router.get('/proxy', async (req, res, next) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    console.log(`Proxying PDF request: ${url}`);
+
+    // Validate it's an allowed URL pattern (e.g. arXiv)
+    if (!url.startsWith('http://arxiv.org/') && !url.startsWith('https://arxiv.org/') && !url.startsWith('http://export.arxiv.org/')) {
+      return res.status(403).json({ error: 'URL not allowed for proxying' });
+    }
+
+    const response = await axios({
+      url,
+      method: 'GET',
+      responseType: 'stream',
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('Error proxying PDF:', error);
+    res.status(500).json({ error: 'Failed to proxy PDF' });
   }
 });
 
@@ -103,6 +141,44 @@ router.post('/upload', upload.single('pdf'), async (req, res, next) => {
   }
 });
 
+// Add an external document (e.g., from arXiv)
+router.post('/external', async (req, res, next) => {
+  try {
+    const { projectId, url, filename } = req.body;
+
+    if (!projectId || !url || !filename) {
+      return res.status(400).json({ error: 'Project ID, URL, and filename are required' });
+    }
+
+    // Verify project exists
+    const project = await prisma.project.findUnique({
+      where: { id: projectId }
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const document = await prisma.document.create({
+      data: {
+        projectId,
+        filename,
+        filePath: url, // Store the URL in filePath
+      }
+    });
+
+    const documentWithUrl = {
+      ...document,
+      fileUrl: url,
+    };
+
+    res.status(201).json({ document: documentWithUrl });
+  } catch (error) {
+    console.error('Error adding external document:', error);
+    next(error);
+  }
+});
+
 // Get a document
 router.get('/:id', async (req, res, next) => {
   try {
@@ -122,10 +198,9 @@ router.get('/:id', async (req, res, next) => {
     }
 
     // Add fileUrl for frontend
-    const filename = document.filePath.split('/').pop();
     const documentWithUrl = {
       ...document,
-      fileUrl: `/uploads/${filename}`,
+      fileUrl: getFileUrl(document.filePath),
     };
 
     res.json(documentWithUrl);
@@ -146,10 +221,9 @@ router.get('/project/:projectId', async (req, res, next) => {
 
     // Add fileUrl for each document
     const documentsWithUrls = documents.map((doc: any) => {
-      const filename = doc.filePath.split('/').pop();
       return {
         ...doc,
-        fileUrl: `/uploads/${filename}`,
+        fileUrl: getFileUrl(doc.filePath),
       };
     });
 

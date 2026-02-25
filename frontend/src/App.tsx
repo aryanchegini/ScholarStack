@@ -3,6 +3,7 @@ import MainLayout from './components/layout/MainLayout';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectViewVSCode from './components/ProjectViewVSCode';
 import SettingsPage from './pages/SettingsPage';
+import SearchPage from './pages/SearchPage';
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Route index element={<Navigate to="/projects" replace />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="project/:id" element={<ProjectViewVSCode />} />
+        <Route path="search" element={<SearchPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

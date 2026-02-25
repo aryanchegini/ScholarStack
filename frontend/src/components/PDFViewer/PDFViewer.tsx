@@ -49,6 +49,23 @@ export default function PDFViewer({ document, onAddToNotebook }: PDFViewerProps)
     }
   };
 
+  const getPdfUrl = () => {
+    // Determine the base URL to use
+    let url = document.fileUrl;
+    if (!url && document.filePath) {
+      url = `/uploads/${document.filePath.split('/').pop()}`;
+    }
+
+    if (!url) return '';
+
+    // If it's an external URL (like arXiv), route it through our backend proxy to avoid CORS
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return `/api/documents/proxy?url=${encodeURIComponent(url)}`;
+    }
+
+    return url;
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-100 dark:bg-gray-900">
       {/* Toolbar */}
@@ -96,7 +113,7 @@ export default function PDFViewer({ document, onAddToNotebook }: PDFViewerProps)
         <HighlightOverlay onHighlight={handleHighlight} />
         <div className="flex justify-center">
           <Document
-            file={document.fileUrl || `/uploads/${document.filePath.split('/').pop()}`}
+            file={getPdfUrl()}
             onLoadSuccess={handleLoadSuccess}
             loading={
               <div className="flex items-center justify-center h-64">
