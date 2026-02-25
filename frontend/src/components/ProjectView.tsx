@@ -1,9 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Upload, X, Plus, MessageSquare, FileText } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, MessageSquare, FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { projectsApi, documentsApi, notesApi } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 import PDFViewer from './PDFViewer/PDFViewer';
@@ -21,6 +29,8 @@ export default function ProjectView() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<'notebook' | 'chat'>('notebook');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
 
   // Handle adding highlight from PDF to notebook
   const handleAddToNotebook = (text: string, tag: string) => {
@@ -62,6 +72,33 @@ export default function ProjectView() {
     onError: (error: Error) => {
       toast({
         title: 'Upload failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      return documentsApi.delete(documentId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents', id] });
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
+      // Clear selected document if it was deleted
+      if (selectedDocumentId === documentToDelete) {
+        setSelectedDocumentId(null);
+      }
+      toast({
+        title: 'Document deleted',
+        description: 'The PDF has been removed from your project.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Delete failed',
         description: error.message,
         variant: 'destructive',
       });
@@ -142,25 +179,39 @@ export default function ProjectView() {
           <div className="flex-1 overflow-auto p-2 space-y-1">
             {documents && documents.length > 0 ? (
               documents.map((doc) => (
-                <button
+                <div
                   key={doc.id}
-                  onClick={() => setSelectedDocumentId(doc.id)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                  className={`group relative rounded-md text-sm transition-colors ${
                     selectedDocumentId === doc.id
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-primary'
                       : 'hover:bg-accent'
                   }`}
                 >
-                  <div className="flex items-start gap-2">
-                    <FileText className="h-4 w-4 mt-0.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{doc.filename}</p>
-                      <p className="text-xs opacity-70">
-                        {doc.pageCount || '?'} pages
-                      </p>
+                  <button
+                    onClick={() => setSelectedDocumentId(doc.id)}
+                    className="w-full text-left px-3 py-2 pr-8 rounded-md"
+                  >
+                    <div className="flex items-start gap-2">
+                      <FileText className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{doc.filename}</p>
+                        <p className="text-xs opacity-70">
+                          {doc.pageCount || '?'} pages
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDocumentToDelete(doc.id);
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/20 text-destructive transition-opacity"
+                    title="Delete document"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               ))
             ) : (
               <div className="text-center py-8 px-4">
@@ -261,6 +312,30 @@ export default function ProjectView() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Document</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this PDF? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => documentToDelete && deleteDocumentMutation.mutate(documentToDelete)}
+              disabled={deleteDocumentMutation.isPending}
+            >
+              {deleteDocumentMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
