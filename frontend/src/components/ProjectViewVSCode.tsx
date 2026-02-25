@@ -14,8 +14,17 @@ import {
   Terminal,
   Maximize2,
   Minimize2,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { projectsApi, documentsApi, notesApi } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
@@ -43,6 +52,8 @@ export default function ProjectViewVSCode() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState<'notebook' | 'chat' | 'logs'>('notebook');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
 
   // Auto-select first document when documents load
   const { data: documents } = useQuery({
@@ -90,6 +101,39 @@ export default function ProjectViewVSCode() {
       });
     },
   });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      return documentsApi.delete(documentId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents', id] });
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      setDeleteDialogOpen(false);
+      const deletedId = documentToDelete;
+      setDocumentToDelete(null);
+      // Clear selected document if it was deleted
+      if (selectedDocumentId === deletedId) {
+        setSelectedDocumentId(documents?.find(d => d.id !== deletedId)?.id || null);
+      }
+      toast({
+        title: 'Document deleted',
+        description: 'The PDF has been removed from your project.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Delete failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleDeleteDocument = (documentId: string) => {
+    setDocumentToDelete(documentId);
+    setDeleteDialogOpen(true);
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -171,18 +215,29 @@ export default function ProjectViewVSCode() {
         <div className="space-y-0.5">
           {documents && documents.length > 0 ? (
             documents.map((doc) => (
-              <button
+              <div
                 key={doc.id}
-                onClick={() => setSelectedDocumentId(doc.id)}
-                className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 transition-colors ${
+                className={`group relative rounded text-sm flex items-center transition-colors ${
                   selectedDocumentId === doc.id
                     ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <FileText className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{doc.filename}</span>
-              </button>
+                <button
+                  onClick={() => setSelectedDocumentId(doc.id)}
+                  className="flex-1 text-left px-2 py-1.5 pr-6 flex items-center gap-2 rounded"
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{doc.filename}</span>
+                </button>
+                <button
+                  onClick={() => handleDeleteDocument(doc.id)}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/20 text-destructive transition-opacity"
+                  title="Delete document"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
             ))
           ) : (
             <div className="text-center py-4 px-2">
@@ -202,6 +257,7 @@ export default function ProjectViewVSCode() {
           documents={documents}
           selectedDocumentId={selectedDocumentId}
           onSelectDocument={setSelectedDocumentId}
+          onCloseDocument={handleDeleteDocument}
         />
       )}
 
@@ -389,6 +445,30 @@ export default function ProjectViewVSCode() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Document</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this PDF? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => documentToDelete && deleteDocumentMutation.mutate(documentToDelete)}
+              disabled={deleteDocumentMutation.isPending}
+            >
+              {deleteDocumentMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
