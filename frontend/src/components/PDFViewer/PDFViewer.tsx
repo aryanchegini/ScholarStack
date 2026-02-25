@@ -15,6 +15,7 @@ interface PDFViewerProps {
     id: string;
     filename: string;
     filePath: string;
+    fileUrl?: string;
     pageCount?: number;
   };
   onAddToNotebook?: (text: string, tag: string) => void;
@@ -95,7 +96,7 @@ export default function PDFViewer({ document, onAddToNotebook }: PDFViewerProps)
         <HighlightOverlay onHighlight={handleHighlight} />
         <div className="flex justify-center">
           <Document
-            file={`${document.filePath}`}
+            file={document.fileUrl || `/uploads/${document.filePath.split('/').pop()}`}
             onLoadSuccess={handleLoadSuccess}
             loading={
               <div className="flex items-center justify-center h-64">

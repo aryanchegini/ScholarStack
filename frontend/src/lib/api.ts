@@ -137,6 +137,7 @@ export interface Document {
   projectId: string;
   filename: string;
   filePath: string;
+  fileUrl?: string;
   pageCount?: number;
   uploadedAt: string;
   chunks?: DocumentChunk[];

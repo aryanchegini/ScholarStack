@@ -137,3 +137,7 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Application data
+backend/app_data/uploads/
+backend/app_data/*.db
