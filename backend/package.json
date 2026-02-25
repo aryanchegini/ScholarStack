@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
-    "dev": "node --max-old-space-size=8192 $(which tsx) watch src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node --max-old-space-size=8192 dist/server.js",
     "prisma:generate": "prisma generate",
