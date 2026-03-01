@@ -7,6 +7,7 @@ import documentsRouter from './routes/documents.js';
 import notesRouter from './routes/notes.js';
 import chatRouter from './routes/chat.js';
 import userRouter from './routes/user.js';
+import highlightsRouter from './routes/highlights.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,6 +38,7 @@ app.use('/api/documents', documentsRouter);
 app.use('/api/notes', notesRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/user', userRouter);
+app.use('/api/highlights', highlightsRouter);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

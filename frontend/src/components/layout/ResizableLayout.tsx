@@ -9,8 +9,6 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
-  PanelsTopLeft,
-  Layout,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -25,8 +23,8 @@ interface ResizableLayoutProps {
 export function ResizableLayout({ sidebar, main, rightPanel, header }: ResizableLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [sidebarSize, setSidebarSize] = useState(20);
-  const [rightPanelSize, setRightPanelSize] = useState(35);
+  const sidebarSize = 20;
+  const rightPanelSize = 35;
 
   return (
     <div className="h-full flex flex-col">
@@ -49,7 +47,7 @@ export function ResizableLayout({ sidebar, main, rightPanel, header }: Resizable
               >
                 {sidebar}
               </ResizablePanel>
-              <ResizableHandle withHandle />
+              <ResizableHandle />
             </>
           )}
 
@@ -78,7 +76,7 @@ export function ResizableLayout({ sidebar, main, rightPanel, header }: Resizable
           {/* Right Panel */}
           {!rightPanelCollapsed && (
             <>
-              <ResizableHandle withHandle />
+              <ResizableHandle />
               <ResizablePanel
                 defaultSize={rightPanelSize}
                 minSize={25}
@@ -188,5 +186,5 @@ export function Panel({
 }
 
 export function PanelSeparator() {
-  return <ResizableHandle withHandle />;
+  return <ResizableHandle />;
 }
