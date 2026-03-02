@@ -30,7 +30,7 @@ router.post('/', async (req, res, next) => {
       },
       include: {
         documents: true,
-        notes: true,
+        notebook: true,
       }
     });
 
@@ -54,7 +54,6 @@ router.get('/', async (req, res, next) => {
         },
         _count: {
           select: {
-            notes: true,
             highlights: true,
           }
         }
@@ -79,9 +78,7 @@ router.get('/:id', async (req, res, next) => {
       where: { id },
       include: {
         documents: true,
-        notes: {
-          orderBy: { updatedAt: 'desc' }
-        },
+        notebook: true,
         highlights: true,
       }
     });

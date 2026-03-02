@@ -1,9 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-}
+
 
 // Helper function for API calls
 async function fetchApi<T>(
@@ -76,17 +73,44 @@ export const documentsApi = {
     fetchApi<void>(`/documents/${id}`, { method: 'DELETE' }),
 };
 
-// Notes API
-export const notesApi = {
-  save: (projectId: string, content: string) =>
-    fetchApi<Note>('/notes', {
+// Notebook API
+export const notebookApi = {
+  saveProjectNotebook: (projectId: string, content: string) =>
+    fetchApi<Notebook>('/notes', {
       method: 'POST',
       body: JSON.stringify({ projectId, content }),
     }),
+  saveDocumentNotebook: (documentId: string, content: string) =>
+    fetchApi<Notebook>('/notes', {
+      method: 'POST',
+      body: JSON.stringify({ documentId, content }),
+    }),
   getByProject: (projectId: string) =>
-    fetchApi<Note[]>(`/notes/project/${projectId}`),
-  get: (id: string) => fetchApi<Note>(`/notes/${id}`),
+    fetchApi<Notebook>(`/notes/project/${projectId}`),
+  getByDocument: (documentId: string) =>
+    fetchApi<Notebook>(`/notes/document/${documentId}`),
+  get: (id: string) => fetchApi<Notebook>(`/notes/${id}`),
   delete: (id: string) => fetchApi<void>(`/notes/${id}`, { method: 'DELETE' }),
+};
+
+// Notebook Pages API
+export const notebookPageApi = {
+  listByProject: (projectId: string) =>
+    fetchApi<NotebookPage[]>(`/notes/project/${projectId}/pages`),
+  create: (projectId: string, title?: string) =>
+    fetchApi<NotebookPage>(`/notes/project/${projectId}/pages`, {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    }),
+  getPage: (pageId: string) =>
+    fetchApi<NotebookPage>(`/notes/pages/${pageId}`),
+  update: (pageId: string, data: { title?: string; content?: string }) =>
+    fetchApi<NotebookPage>(`/notes/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  delete: (pageId: string) =>
+    fetchApi<void>(`/notes/pages/${pageId}`, { method: 'DELETE' }),
 };
 
 // Chat API
@@ -96,6 +120,31 @@ export const chatApi = {
       method: 'POST',
       body: JSON.stringify({ projectId, query, conversationHistory }),
     }),
+};
+
+// Highlights API
+export const highlightsApi = {
+  listByDocument: (documentId: string) =>
+    fetchApi<Highlight[]>(`/highlights/document/${documentId}`),
+  create: (data: {
+    projectId: string;
+    documentId: string;
+    pageNumber: number;
+    text: string;
+    color: string;
+    coordinates: string;
+  }) =>
+    fetchApi<Highlight>('/highlights', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: { color?: string; text?: string; annotation?: string }) =>
+    fetchApi<Highlight>(`/highlights/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) =>
+    fetchApi<void>(`/highlights/${id}`, { method: 'DELETE' }),
 };
 
 // User API
@@ -124,10 +173,9 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   documents?: Document[];
-  notes?: Note[];
+  notebook?: Notebook;
   highlights?: Highlight[];
   _count?: {
-    notes: number;
     highlights: number;
   };
 }
@@ -141,6 +189,7 @@ export interface Document {
   pageCount?: number;
   uploadedAt: string;
   chunks?: DocumentChunk[];
+  notebook?: Notebook;
 }
 
 export interface DocumentChunk {
@@ -150,10 +199,21 @@ export interface DocumentChunk {
   content: string;
 }
 
-export interface Note {
+export interface Notebook {
+  id: string;
+  projectId?: string;
+  documentId?: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotebookPage {
   id: string;
   projectId: string;
+  title: string;
   content: string;
+  order: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -164,9 +224,10 @@ export interface Highlight {
   documentId: string;
   pageNumber: number;
   text: string;
+  annotation: string;
   color: string;
   coordinates: string;
-  noteId?: string;
+  notebookId?: string;
   createdAt: string;
 }
 

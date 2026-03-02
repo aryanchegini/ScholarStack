@@ -1,6 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { FolderKanban, Settings, PlusCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { FolderKanban, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
 

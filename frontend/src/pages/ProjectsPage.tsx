@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2, FolderOpen, FileText, Calendar } from 'lucide-react';
+import { PlusCircle, Trash2, FolderOpen, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -179,10 +179,6 @@ export default function ProjectsPage() {
                     <div className="flex items-center gap-1">
                       <FileText className="h-4 w-4" />
                       <span>{project.documents?.length || 0} documents</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <FolderOpen className="h-4 w-4" />
-                      <span>{project._count?.notes || 0} notes</span>
                     </div>
                   </div>
                 </CardContent>

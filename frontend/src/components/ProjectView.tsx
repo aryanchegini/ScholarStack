@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Upload, X, Plus, MessageSquare, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, MessageSquare, FileText, Trash2, Book } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { projectsApi, documentsApi, notesApi } from '@/lib/api';
+import { projectsApi, documentsApi } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 import PDFViewer from './PDFViewer/PDFViewer';
 import Notebook from './Notebook/Notebook';
@@ -47,12 +47,6 @@ export default function ProjectView() {
   const { data: documents } = useQuery({
     queryKey: ['documents', id],
     queryFn: () => documentsApi.listByProject(id!),
-    enabled: !!id,
-  });
-
-  const { data: notes } = useQuery({
-    queryKey: ['notes', id],
-    queryFn: () => notesApi.getByProject(id!),
     enabled: !!id,
   });
 
@@ -152,7 +146,7 @@ export default function ProjectView() {
           <div>
             <h1 className="text-lg font-semibold">{project.name}</h1>
             <p className="text-xs text-muted-foreground">
-              {documents?.length || 0} documents · {notes?.length || 0} notes
+              {documents?.length || 0} documents
             </p>
           </div>
         </div>
@@ -171,113 +165,132 @@ export default function ProjectView() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Documents Sidebar */}
+        {/* Sidebar */}
         <div className="w-64 border-r border-border bg-card flex flex-col">
-          <div className="p-4 border-b border-border">
-            <h2 className="font-semibold text-sm">Documents</h2>
-          </div>
-          <div className="flex-1 overflow-auto p-2 space-y-1">
-            {documents && documents.length > 0 ? (
-              documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className={`group relative rounded-md text-sm transition-colors ${
-                    selectedDocumentId === doc.id
-                      ? 'bg-primary'
-                      : 'hover:bg-accent'
-                  }`}
-                >
-                  <button
-                    onClick={() => setSelectedDocumentId(doc.id)}
-                    className="w-full text-left px-3 py-2 pr-8 rounded-md"
+          <div className="flex flex-col h-1/2 border-b border-border">
+            <div className="p-4 border-b border-border flex justify-between items-center bg-muted/20">
+              <h2 className="font-semibold text-sm">Sources</h2>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowUploadDialog(true)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto p-2 space-y-1">
+              {documents && documents.length > 0 ? (
+                documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className={`group relative rounded-md text-sm transition-colors ${
+                      selectedDocumentId === doc.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-accent hover:text-accent-foreground'
+                    }`}
                   >
-                    <div className="flex items-start gap-2">
-                      <FileText className="h-4 w-4 mt-0.5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{doc.filename}</p>
-                        <p className="text-xs opacity-70">
-                          {doc.pageCount || '?'} pages
-                        </p>
+                    <button
+                      onClick={() => setSelectedDocumentId(doc.id)}
+                      className="w-full text-left px-3 py-2 pr-8 rounded-md"
+                    >
+                      <div className="flex items-start gap-2">
+                        <FileText className="h-4 w-4 mt-0.5 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{doc.filename}</p>
+                          <p className="text-xs opacity-70">
+                            {doc.pageCount || '?'} pages
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDocumentToDelete(doc.id);
-                      setDeleteDialogOpen(true);
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/20 text-destructive transition-opacity"
-                    title="Delete document"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDocumentToDelete(doc.id);
+                        setDeleteDialogOpen(true);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/20 text-destructive transition-opacity"
+                      title="Delete document"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 px-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    No documents yet
+                  </p>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-8 px-4">
-                <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground mb-4">
-                  No documents yet
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowUploadDialog(true)}
-                  className="w-full"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Upload PDF
-                </Button>
-              </div>
-            )}
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col h-1/2">
+            <div className="p-4 border-b border-border bg-muted/20">
+              <h2 className="font-semibold text-sm">Workspace</h2>
+            </div>
+            <div className="p-2">
+              <button
+                onClick={() => setSelectedDocumentId(null)}
+                className={`w-full flex items-center gap-2 text-left px-3 py-3 rounded-md text-sm transition-colors ${
+                  selectedDocumentId === null
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-accent/50 hover:bg-accent text-accent-foreground'
+                }`}
+              >
+                <Book className="h-4 w-4" />
+                <span className="font-medium">Project Notebook</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Split View */}
-        <div className="flex-1 flex">
-          {/* PDF Viewer */}
-          <div className="flex-1 border-r border-border">
-            {selectedDocument ? (
-              <PDFViewer document={selectedDocument} onAddToNotebook={handleAddToNotebook} />
-            ) : (
-              <div className="h-full flex items-center justify-center bg-muted/30">
-                <div className="text-center">
-                  <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    {documents && documents.length > 0
-                      ? 'Select a document to view'
-                      : 'Upload a PDF to get started'}
-                  </p>
+        <div className="flex-1 flex overflow-hidden">
+          {selectedDocument ? (
+            <>
+              {/* PDF Viewer */}
+              <div className="flex-1 border-r border-border">
+                <PDFViewer document={selectedDocument} onAddToNotebook={handleAddToNotebook} />
+              </div>
+
+              {/* Document Notebook / AI Chat */}
+              <div className="w-[450px] lg:w-[500px] flex flex-col bg-card">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex flex-col h-full">
+                  <div className="border-b border-border bg-muted/10">
+                    <TabsList className="w-full justify-start rounded-none border-b-0 h-12 px-4 bg-transparent">
+                      <TabsTrigger value="notebook" className="gap-2 data-[state=active]:bg-background">
+                        <FileText className="h-4 w-4" />
+                        Paper Notebook
+                      </TabsTrigger>
+                      <TabsTrigger value="chat" className="gap-2 data-[state=active]:bg-background">
+                        <MessageSquare className="h-4 w-4" />
+                        AI Chat
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  <TabsContent value="notebook" className="flex-1 m-0 overflow-hidden bg-background">
+                    {/* Important: key prop forces remount when document changes */}
+                    <Notebook key={selectedDocument.id} documentId={selectedDocument.id} />
+                  </TabsContent>
+
+                  <TabsContent value="chat" className="flex-1 m-0 overflow-hidden bg-background">
+                    <AIChat projectId={id!} />
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col p-6 overflow-hidden bg-muted/10">
+              <div className="max-w-4xl w-full mx-auto flex flex-col h-full border border-border rounded-lg shadow-sm bg-background overflow-hidden">
+                <div className="border-b border-border p-4 bg-muted/20 flex items-center gap-2">
+                  <Book className="h-5 w-5 text-primary" />
+                  <h2 className="font-semibold">Project Global Notebook</h2>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <Notebook key="project-notebook" projectId={id!} />
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Notebook / AI Chat */}
-          <div className="w-[500px] flex flex-col">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex flex-col h-full">
-              <div className="border-b border-border">
-                <TabsList className="w-full justify-start rounded-none border-b-0 h-12 px-4">
-                  <TabsTrigger value="notebook" className="gap-2">
-                    <FileText className="h-4 w-4" />
-                    Notebook
-                  </TabsTrigger>
-                  <TabsTrigger value="chat" className="gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    AI Chat
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value="notebook" className="flex-1 m-0 overflow-hidden">
-                <Notebook projectId={id!} />
-              </TabsContent>
-
-              <TabsContent value="chat" className="flex-1 m-0 overflow-hidden">
-                <AIChat projectId={id!} />
-              </TabsContent>
-            </Tabs>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

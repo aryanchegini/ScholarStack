@@ -24,8 +24,9 @@ model Project {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   documents Document[]
-  notes     Note[]
+  notebook  Notebook?
   highlights Highlight[]
+  notebookPages NotebookPage[]
 }
 
 model Document {
@@ -39,6 +40,7 @@ model Document {
   project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   chunks       DocumentChunk[]
   highlights   Highlight[]
+  notebook     Notebook?
 }
 
 model DocumentChunk {
@@ -51,12 +53,25 @@ model DocumentChunk {
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 }
 
-model Note {
+model Notebook {
+  id         String    @id @default(uuid())
+  content    String    // TipTap JSON
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  projectId  String?   @unique
+  documentId String?   @unique
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model NotebookPage {
   id        String   @id @default(uuid())
-  projectId String
-  content   String // TipTap JSON
+  title     String
+  content   String   // TipTap JSON
+  order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
@@ -66,9 +81,10 @@ model Highlight {
   documentId   String
   pageNumber   Int
   text         String
-  color        String   @default("#ffff00")
+  annotation   String   @default("")
+  color        String   @default("#fef08a")
   coordinates  String // JSON stringified bounding rect
-  noteId       String?
+  notebookId   String?
   createdAt    DateTime @default(now())
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)

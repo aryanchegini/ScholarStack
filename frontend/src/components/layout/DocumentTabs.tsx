@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, FileText, Plus } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Document } from '@/lib/api';
@@ -25,7 +25,7 @@ export function DocumentTabs({
 
   return (
     <div className="flex items-center bg-muted/30 border-b border-border overflow-x-auto">
-      {documents.map((doc, index) => {
+      {documents.map((doc) => {
         const isSelected = doc.id === selectedDocumentId;
         const isHovered = doc.id === hoveredTab;
 

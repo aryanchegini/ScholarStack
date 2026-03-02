@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, AlertCircle, FileText } from 'lucide-react';
+import { Send, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { chatApi } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
-import type { ChatMessage, ChatResponse, Citation } from '@/lib/api';
+import type { ChatMessage, Citation } from '@/lib/api';
 
 interface AIChatProps {
   projectId: string;
